@@ -1,0 +1,19 @@
+@import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&family=Poppins:wght@100..900&display=swap");
+
+/* Extend Tailwind Theme */
+@theme {
+  --font-sans: "Roboto", sans-serif;
+  --font-heading: "Poppins", sans-serif;
+}
+
+/* Smooth transitions for dark/light */
+html {
+  transition: background-color 0.3s, color 0.3s;
+  scroll-behavior: smooth;
+}
+
+/* Apply font globally */
+body {
+  @apply font-sans;
+}
