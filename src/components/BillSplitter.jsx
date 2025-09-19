@@ -36,7 +36,13 @@ const BillSplitter = () => {
     };
 
     const calculateShare = () => {
-        let base = parseFloat(total || 0);
+        // Validate total input
+        if (!total || isNaN(parseFloat(total)) || parseFloat(total) <= 0) {
+            alert("Please enter a valid total bill amount");
+            return;
+        }
+        
+        let base = parseFloat(total);
         let tipAmt = (base * tip) / 100;
         let taxAmt = (base * tax) / 100;
         let totalAmount = base + tipAmt + taxAmt;
@@ -46,18 +52,22 @@ const BillSplitter = () => {
                 (a, b) => a + parseFloat(b || 0),
                 0
             );
-            if (sumCustom > 0) {
-                const scale = totalAmount / sumCustom;
-                const shares = individuals.map((amt) =>
-                    roundUp
-                        ? Math.ceil(parseFloat(amt || 0) * scale)
-                        : parseFloat(amt || 0) * scale
-                );
-                setPerPerson(shares);
+            
+            // Validate custom split amounts
+            if (sumCustom <= 0) {
+                alert("Custom split amounts must total more than 0");
+                return;
             }
+            
+            const scale = totalAmount / sumCustom;
+            const shares = individuals.map((amt) => {
+                const amount = parseFloat(amt || 0) * scale;
+                return roundUp ? Math.ceil(amount) : parseFloat(amount.toFixed(2));
+            });
+            setPerPerson(shares);
         } else {
             const share = totalAmount / people;
-            const finalShare = roundUp ? Math.ceil(share) : share;
+            const finalShare = roundUp ? Math.ceil(share) : parseFloat(share.toFixed(2));
             setPerPerson(Array(people).fill(finalShare));
         }
 
@@ -70,6 +80,23 @@ const BillSplitter = () => {
         newValues[index] = value;
         setIndividuals(newValues);
     };
+
+    // Update individuals array when people count changes
+    React.useEffect(() => {
+        if (customSplit) {
+            const newIndividuals = [...individuals];
+            if (people > individuals.length) {
+                // Add empty values for new people
+                while (newIndividuals.length < people) {
+                    newIndividuals.push("");
+                }
+            } else {
+                // Remove extra values
+                newIndividuals.length = people;
+            }
+            setIndividuals(newIndividuals);
+        }
+    }, [people, customSplit]);
 
     const formatRupee = (value) =>
         new Intl.NumberFormat("en-IN", {
@@ -99,7 +126,7 @@ const BillSplitter = () => {
                             <FaCalculator className="text-indigo-600 dark:text-indigo-300 text-xl" />
                         </div>
                         <h1 className="text-2xl sm:text-3xl font-bold text-center">
-                            Advanced Bill Splitter
+                            Bill Splitter
                         </h1>
                     </div>
 
@@ -107,8 +134,8 @@ const BillSplitter = () => {
                     <div className="flex w-full max-w-md bg-gray-200 dark:bg-gray-700 rounded-lg p-1">
                         <button
                             className={`flex-1 flex items-center justify-center py-2 px-4 rounded-md transition-colors ${activeTab === "splitter"
-                                    ? "bg-white dark:bg-gray-800 shadow-sm font-medium text-gray-900 dark:text-white"
-                                    : "bg-transparent text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+                                ? "bg-white dark:bg-gray-800 shadow-sm font-medium text-gray-900 dark:text-white"
+                                : "bg-transparent text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
                                 }`}
                             onClick={() => setActiveTab("splitter")}
                         >
@@ -117,8 +144,8 @@ const BillSplitter = () => {
                         </button>
                         <button
                             className={`flex-1 flex items-center justify-center py-2 px-4 rounded-md transition-colors ${activeTab === "summary"
-                                    ? "bg-white dark:bg-gray-800 shadow-sm font-medium text-gray-900 dark:text-white"
-                                    : "bg-transparent text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+                                ? "bg-white dark:bg-gray-800 shadow-sm font-medium text-gray-900 dark:text-white"
+                                : "bg-transparent text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
                                 }`}
                             onClick={() => setActiveTab("summary")}
                         >
@@ -152,6 +179,8 @@ const BillSplitter = () => {
                                             onChange={(e) => setTotal(e.target.value)}
                                             className="w-full pl-8 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-base"
                                             placeholder="0.00"
+                                            min="0"
+                                            step="0.01"
                                         />
                                     </div>
                                 </div>
@@ -161,7 +190,7 @@ const BillSplitter = () => {
                                     </label>
                                     <div className="flex items-center">
                                         <button
-                                            className="bg-gray-200 dark:bg-gray-700 h-10 w-10 rounded-l-lg"
+                                            className={`bg-gray-200 dark:bg-gray-700 h-10 w-10 rounded-l-lg ${people <= 1 ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-300 dark:hover:bg-gray-600"}`}
                                             onClick={() => people > 1 && setPeople(people - 1)}
                                             disabled={people <= 1}
                                         >
@@ -172,16 +201,16 @@ const BillSplitter = () => {
                                             value={people}
                                             min="1"
                                             onChange={(e) => {
-                                                const val = Number(e.target.value);
-                                                if (val > 0) {
-                                                    setPeople(val);
+                                                const val = Math.max(1, Number(e.target.value));
+                                                setPeople(val);
+                                                if (customSplit) {
                                                     setIndividuals(Array(val).fill(""));
                                                 }
                                             }}
                                             className="w-16 text-center py-2 border-y border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 h-10"
                                         />
                                         <button
-                                            className="bg-gray-200 dark:bg-gray-700 h-10 w-10 rounded-r-lg"
+                                            className="bg-gray-200 dark:bg-gray-700 h-10 w-10 rounded-r-lg hover:bg-gray-300 dark:hover:bg-gray-600"
                                             onClick={() => setPeople(people + 1)}
                                         >
                                             +
@@ -237,6 +266,7 @@ const BillSplitter = () => {
                                         type="checkbox"
                                         checked={roundUp}
                                         onChange={() => setRoundUp(!roundUp)}
+                                        className="w-4 h-4"
                                     />
                                     Round Up Amount
                                 </label>
@@ -245,7 +275,13 @@ const BillSplitter = () => {
                                     <input
                                         type="checkbox"
                                         checked={customSplit}
-                                        onChange={() => setCustomSplit(!customSplit)}
+                                        onChange={() => {
+                                            setCustomSplit(!customSplit);
+                                            if (!customSplit) {
+                                                setIndividuals(Array(people).fill(""));
+                                            }
+                                        }}
+                                        className="w-4 h-4"
                                     />
                                     Custom Split
                                 </label>
@@ -257,19 +293,25 @@ const BillSplitter = () => {
                                     <h3 className="font-medium mb-3">Individual Amounts</h3>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         {Array.from({ length: people }).map((_, i) => (
-                                            <input
-                                                key={i}
-                                                type="number"
-                                                value={individuals[i] || ""}
-                                                onChange={(e) =>
-                                                    handleIndividualChange(i, e.target.value)
-                                                }
-                                                placeholder={`Person ${i + 1}`}
-                                                className="w-full p-2 border rounded-lg"
-                                            />
+                                            <div key={i} className="relative">
+                                                <span className="absolute left-3 top-2 text-gray-500 dark:text-gray-400">
+                                                    ₹
+                                                </span>
+                                                <input
+                                                    type="number"
+                                                    value={individuals[i] || ""}
+                                                    onChange={(e) =>
+                                                        handleIndividualChange(i, e.target.value)
+                                                    }
+                                                    placeholder={`Person ${i + 1}`}
+                                                    className="w-full pl-8 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                                                    min="0"
+                                                    step="0.01"
+                                                />
+                                            </div>
                                         ))}
                                     </div>
-                                    <p className="flex items-center mt-2 text-xs text-gray-500">
+                                    <p className="flex items-center mt-2 text-xs text-gray-500 dark:text-gray-400">
                                         <FaInfoCircle className="mr-1" /> Enter how much each person
                                         spent
                                     </p>
@@ -280,14 +322,14 @@ const BillSplitter = () => {
                             <div className="flex flex-col sm:flex-row gap-4 pt-4">
                                 <button
                                     onClick={calculateShare}
-                                    className="flex-1 bg-indigo-500 text-white py-3 rounded-lg"
+                                    className={`flex-1 bg-indigo-500 text-white py-3 rounded-lg transition ${!total ? "opacity-50 cursor-not-allowed" : "hover:bg-indigo-600"}`}
                                     disabled={!total}
                                 >
                                     <FaCalculator className="inline mr-2" /> Calculate
                                 </button>
                                 <button
                                     onClick={resetAll}
-                                    className="flex-1 bg-gray-200 dark:bg-gray-700 py-3 rounded-lg"
+                                    className="flex-1 bg-gray-200 dark:bg-gray-700 py-3 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition"
                                 >
                                     <FaRedoAlt className="inline mr-2" /> Reset
                                 </button>
@@ -351,7 +393,7 @@ const BillSplitter = () => {
                                     <div className="text-center">
                                         <button
                                             onClick={() => setActiveTab("splitter")}
-                                            className="px-6 py-2 bg-indigo-500 text-white rounded-lg"
+                                            className="px-6 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition"
                                         >
                                             Back to Splitter
                                         </button>
@@ -363,7 +405,7 @@ const BillSplitter = () => {
                                     <p>No Calculation Yet</p>
                                     <button
                                         onClick={() => setActiveTab("splitter")}
-                                        className="mt-4 px-6 py-2 bg-indigo-500 text-white rounded-lg"
+                                        className="mt-4 px-6 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition"
                                     >
                                         Go to Splitter
                                     </button>
